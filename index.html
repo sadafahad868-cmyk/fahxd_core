@@ -212,6 +212,80 @@
       transform: none;
     }
 
+    .mic-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 40px;
+      color: #d0d9f0;
+      width: 52px;
+      height: 52px;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .mic-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #f0f4ff;
+    }
+
+    .mic-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .mic-btn.recording {
+      background: linear-gradient(135deg, #ff5c5c, #ff8a8a);
+      color: white;
+      box-shadow: 0 0 0 0 rgba(255, 92, 92, 0.6);
+      animation: mic-pulse 1.4s infinite;
+    }
+
+    @keyframes mic-pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(255, 92, 92, 0.55);
+      }
+
+      70% {
+        box-shadow: 0 0 0 14px rgba(255, 92, 92, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(255, 92, 92, 0);
+      }
+    }
+
+    .history-btn {
+      position: fixed;
+      top: 28px;
+      right: 28px;
+      z-index: 20;
+      margin-top: 46px;
+      background: rgba(10, 12, 26, 0.5);
+      backdrop-filter: blur(10px);
+      padding: 8px 16px;
+      border-radius: 40px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.7rem;
+      color: #a8b3d9;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      box-shadow: 0 15px 30px -12px rgba(0, 0, 0, 0.6);
+      transition: color 0.2s ease, background 0.2s ease;
+    }
+
+    .history-btn:hover {
+      color: #ff8a8a;
+      background: rgba(255, 92, 92, 0.12);
+    }
+
     .brand-badge {
       position: fixed;
       top: 28px;
@@ -340,6 +414,20 @@
         font-size: 1.1rem;
       }
 
+      .mic-btn {
+        width: 46px;
+        height: 46px;
+        font-size: 1rem;
+      }
+
+      .history-btn {
+        top: 16px;
+        right: 16px;
+        margin-top: 38px;
+        padding: 4px 12px;
+        font-size: 0.6rem;
+      }
+
       .brand-badge {
         top: 16px;
         left: 16px;
@@ -402,6 +490,10 @@
     <i class="fas fa-key"></i> Groq Llama 3.3
   </div>
 
+  <button class="history-btn" id="clearHistoryBtn" title="Clear chat history">
+    <i class="fas fa-trash-can"></i> Clear
+  </button>
+
   <div class="chat-panel" id="chatPanel">
     <div class="message ai">
       ⚡ Welcome to Fahxd_Core! Ask me anything!
@@ -412,6 +504,9 @@
 
   <div class="ui-overlay">
     <input type="text" id="chatInput" placeholder="Ask Fahxd_Core anything..." autofocus />
+    <button class="mic-btn" id="micBtn" title="Voice input">
+      <i class="fas fa-microphone"></i>
+    </button>
     <button class="send-btn" id="sendBtn">
       <i class="fas fa-arrow-up" style="transform: rotate(45deg);"></i>
     </button>
@@ -620,12 +715,54 @@
     const chatPanel = document.getElementById('chatPanel');
     const input = document.getElementById('chatInput');
     const sendBtn = document.getElementById('sendBtn');
+    const micBtn = document.getElementById('micBtn');
+    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
     const apiStatus = document.getElementById('apiStatus');
     const API_BASE_URL = window.location.protocol === 'file:' ? 'http://localhost:3000' : window.location.origin;
+    const HISTORY_KEY = 'fahxd_chat_history';
+    const WELCOME_HTML = '⚡ Welcome to Fahxd_Core! Ask me anything!';
 
     function setApiStatus(text, isError = false) {
       apiStatus.innerHTML = `<i class="fas fa-key"></i> ${text}`;
       apiStatus.classList.toggle('error', isError);
+    }
+
+    // --- CHAT HISTORY (persisted in localStorage) ---
+
+    function loadHistory() {
+      try {
+        const raw = localStorage.getItem(HISTORY_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveHistory(history) {
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      } catch {
+        // storage unavailable (private mode, quota, etc.) — fail silently
+      }
+    }
+
+    function renderHistory(history) {
+      chatPanel.innerHTML = '';
+      if (!history.length) {
+        addMessage('ai', WELCOME_HTML, false);
+        return;
+      }
+      history.forEach(entry => addMessage(entry.type, entry.content, false));
+    }
+
+    function restoreChatHistory() {
+      const history = loadHistory();
+      renderHistory(history);
+    }
+
+    function clearChatHistory() {
+      saveHistory([]);
+      renderHistory([]);
     }
 
     async function callGroq({ prompt }) {
@@ -652,7 +789,7 @@
       return data.reply || '';
     }
 
-    function addMessage(type, content) {
+    function addMessage(type, content, persist = true) {
       const msgDiv = document.createElement('div');
       msgDiv.className = `message ${type}`;
 
@@ -669,6 +806,13 @@
 
       chatPanel.appendChild(msgDiv);
       chatPanel.scrollTop = chatPanel.scrollHeight;
+
+      if (persist && !(type === 'ai' && content === 'typing')) {
+        const history = loadHistory();
+        history.push({ type, content });
+        saveHistory(history);
+      }
+
       return msgDiv;
     }
 
@@ -743,6 +887,78 @@
       if (e.key === 'Enter') sendMessage();
     });
 
+    clearHistoryBtn.addEventListener('click', () => {
+      if (confirm('Clear the entire chat history? This cannot be undone.')) {
+        clearChatHistory();
+      }
+    });
+
+    // --- VOICE INPUT (Web Speech API) ---
+
+    const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let isRecording = false;
+
+    if (SpeechRecognitionImpl) {
+      recognition = new SpeechRecognitionImpl();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.addEventListener('start', () => {
+        isRecording = true;
+        micBtn.classList.add('recording');
+        micBtn.innerHTML = '<i class="fas fa-stop"></i>';
+        input.placeholder = 'Listening...';
+      });
+
+      recognition.addEventListener('result', (event) => {
+        let transcript = '';
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        input.value = transcript;
+
+        if (event.results[event.results.length - 1].isFinal) {
+          recognition.stop();
+        }
+      });
+
+      recognition.addEventListener('error', (event) => {
+        console.error('Speech recognition error:', event.error);
+        setApiStatus(`Mic error: ${event.error}`, true);
+      });
+
+      recognition.addEventListener('end', () => {
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        micBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+        input.placeholder = 'Ask Fahxd_Core anything...';
+
+        if (input.value.trim()) {
+          sendMessage();
+        }
+      });
+
+      micBtn.addEventListener('click', () => {
+        if (isRecording) {
+          recognition.stop();
+        } else {
+          input.value = '';
+          try {
+            recognition.start();
+          } catch (err) {
+            console.error('Could not start recognition:', err);
+          }
+        }
+      });
+    } else {
+      micBtn.disabled = true;
+      micBtn.title = 'Voice input not supported in this browser';
+    }
+
+    // --- INIT ---
+    restoreChatHistory();
     setTimeout(() => input.focus(), 500);
   </script>
 </body>
