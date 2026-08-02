@@ -74,6 +74,7 @@
       animation: fadeIn 0.3s ease;
       pointer-events: auto;
       word-wrap: break-word;
+      white-space: pre-wrap;
     }
 
     .message.user {
@@ -720,7 +721,7 @@
     const apiStatus = document.getElementById('apiStatus');
     const API_BASE_URL = window.location.protocol === 'file:' ? 'http://localhost:3000' : window.location.origin;
     const HISTORY_KEY = 'fahxd_chat_history';
-    const WELCOME_HTML = '⚡ Welcome to Fahxd_Core! Ask me anything!';
+    const WELCOME_HTML = '⚡ Welcome to Fahxd_Core! Ask me anything — I will answer step by step.';
 
     function setApiStatus(text, isError = false) {
       apiStatus.innerHTML = `<i class="fas fa-key"></i> ${text}`;
@@ -789,6 +790,19 @@
       return data.reply || '';
     }
 
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatMessageContent(content) {
+      return escapeHtml(content).replace(/\n/g, '<br>');
+    }
+
     function addMessage(type, content, persist = true) {
       const msgDiv = document.createElement('div');
       msgDiv.className = `message ${type}`;
@@ -801,7 +815,7 @@
         `;
         msgDiv.id = 'typing-indicator';
       } else {
-        msgDiv.textContent = content;
+        msgDiv.innerHTML = formatMessageContent(content);
       }
 
       chatPanel.appendChild(msgDiv);
@@ -825,27 +839,27 @@
       const text = message.toLowerCase();
 
       if (text.includes('hello') || text.includes('hi')) {
-        return 'Hello! I am Fahxd_Core and I am ready to help.';
+        return '1. Hello! I am Fahxd_Core.\n2. I am ready to help you with questions, ideas, or coding tasks.';
       }
 
       if (text.includes('name')) {
-        return 'I am Fahxd_Core, your immersive AI assistant.';
+        return '1. I am Fahxd_Core.\n2. I am your immersive AI assistant for chat and support.';
       }
 
       if (text.includes('what can you do') || text.includes('help')) {
-        return 'I can answer questions, help with ideas, and chat with you in real time.';
+        return '1. I can answer questions.\n2. I can help with ideas and planning.\n3. I can assist with coding and debugging.';
       }
 
       if (text.includes('code') || text.includes('html') || text.includes('javascript')) {
-        return 'I can help with coding questions, debugging, and simple implementation ideas.';
+        return '1. I can help with coding questions.\n2. I can suggest simple implementations.\n3. I can help debug issues step by step.';
       }
 
       if (text.includes('weather') || text.includes('time')) {
-        return 'I am currently running in fallback mode, so I can still reply while the live API is unavailable.';
+        return '1. I am currently in fallback mode.\n2. I can still reply while the live AI service is unavailable.';
       }
 
       const detail = errorMessage ? `\n\nLive API note: ${errorMessage}` : '';
-      return `Thanks for asking: “${message}”. I am replying from the built-in fallback mode so the chat stays active even when the live AI service is unavailable.${detail}`;
+      return `1. Thanks for asking.\n2. I am replying from the built-in fallback mode so the chat stays active.\n3. I will keep the answer short and structured.${detail}`;
     }
 
     async function sendMessage() {

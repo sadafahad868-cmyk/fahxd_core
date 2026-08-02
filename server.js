@@ -14,13 +14,14 @@ const MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 async function initializeSDK() {
   try {
     if (!API_KEY) {
-      throw new Error("Missing GROQ_API_KEY");
+      console.warn("⚠️ GROQ_API_KEY not set; running in fallback mode.");
+      return { ready: false, fallback: true };
     }
 
-    return { ready: true };
+    return { ready: true, fallback: false };
   } catch (err) {
     console.error("❌ Failed to initialize Groq client:", err.message);
-    return null;
+    return { ready: false, fallback: true };
   }
 }
 
@@ -90,13 +91,29 @@ function readBody(req) {
 
 // ---- Groq API (OpenAI-compatible chat completions) ----
 
+function buildStructuredPrompt(userPrompt) {
+  return [
+    "You are Fahxd_Core, a helpful AI assistant.",
+    "Answer the user's question in a clear, easy-to-scan format.",
+    "Prefer a short intro followed by numbered steps (1., 2., 3...) or short bullet points.",
+    "Keep each point concise and practical.",
+    "If the user asks for a simple answer, still break it into 2-4 points.",
+    "",
+    `User question: ${userPrompt}`
+  ].join("\n");
+}
+
 async function callGroqAPI(prompt) {
   const endpoint = "https://api.groq.com/openai/v1/chat/completions";
 
   const payload = {
     model: MODEL,
     messages: [
-      { role: "user", content: prompt }
+      {
+        role: "system",
+        content: "You are a helpful assistant. Respond in a structured, point-by-point way."
+      },
+      { role: "user", content: buildStructuredPrompt(prompt) }
     ]
   };
 
@@ -124,7 +141,11 @@ async function callGroqAPIStream(prompt, onChunk) {
   const payload = {
     model: MODEL,
     messages: [
-      { role: "user", content: prompt }
+      {
+        role: "system",
+        content: "You are a helpful assistant. Respond in a structured, point-by-point way."
+      },
+      { role: "user", content: buildStructuredPrompt(prompt) }
     ],
     stream: true
   };
@@ -325,9 +346,8 @@ async function start() {
 
   aiClient = await initializeSDK();
 
-  if (!aiClient) {
-    console.error("Failed to initialize AI client");
-    process.exit(1);
+  if (!aiClient?.ready) {
+    console.warn("AI client not ready; the chat will use fallback responses until a valid API key is configured.");
   }
 
   server.listen(PORT, () => {
@@ -336,7 +356,7 @@ async function start() {
     console.log(`Server : http://localhost:${PORT}`);
     console.log(`Model  : ${MODEL}`);
     console.log(`API Key: ${API_KEY ? "Loaded ✅" : "Missing ❌"}`);
-    console.log(`SDK    : Loaded ✅`);
+    console.log(`SDK    : ${aiClient?.ready ? "Loaded ✅" : "Fallback mode ⚠️"}`);
     console.log("===================================");
     console.log("");
   });
