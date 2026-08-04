@@ -86,10 +86,16 @@
 
     .message.ai {
       align-self: flex-start;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      color: #d0d9f0;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #f8fbff;
+      font-weight: 600;
       border-bottom-left-radius: 4px;
+    }
+
+    .message.ai strong {
+      color: #ffffff;
+      font-weight: 700;
     }
 
     .message.error {
@@ -800,7 +806,9 @@
     }
 
     function formatMessageContent(content) {
-      return escapeHtml(content).replace(/\n/g, '<br>');
+      return escapeHtml(content)
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
     }
 
     function addMessage(type, content, persist = true) {
