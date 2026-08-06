@@ -3,7 +3,15 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#6c5ce7" />
+  <meta name="description" content="Advanced 3D AI Chatbot powered by Groq API" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Fahxd_Core" />
+  <link rel="apple-touch-icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%236c5ce7' width='180' height='180' rx='44'/><text x='50%' y='50%' font-size='90' fill='white' text-anchor='middle' dy='.35em' font-weight='bold'>⚡</text></svg>" />
+  <link rel="manifest" href="/manifest.json" />
   <title>Fahxd_Core · 3D AI Chatbox</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -560,6 +568,9 @@
       <i class="fas fa-ellipsis-v"></i> Menu
     </button>
     <div class="dropdown-menu" id="dropdownMenu">
+      <button id="installAppBtn" title="Install app" style="display:none;">
+        <i class="fas fa-download"></i> Install App
+      </button>
       <button id="downloadHistoryBtn" title="Download chat history">
         <i class="fas fa-download"></i> Download
       </button>
@@ -1128,6 +1139,40 @@
     // --- INIT ---
     restoreChatHistory();
     setTimeout(() => input.focus(), 500);
+
+    // --- PWA & SERVICE WORKER ---
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('✅ Service Worker registered', reg))
+        .catch(err => console.log('❌ Service Worker registration failed', err));
+    }
+
+    // Install App functionality
+    let deferredPrompt;
+    const installAppBtn = document.getElementById('installAppBtn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installAppBtn.style.display = 'flex';
+    });
+
+    installAppBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`App installation ${outcome === 'accepted' ? 'accepted' : 'dismissed'}`);
+        deferredPrompt = null;
+        installAppBtn.style.display = 'none';
+        dropdownMenu.classList.remove('active');
+        menuBtn.classList.remove('active');
+      }
+    });
+
+    window.addEventListener('appinstalled', () => {
+      console.log('✅ App installed successfully');
+      installAppBtn.style.display = 'none';
+    });
   </script>
 </body>
 
