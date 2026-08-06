@@ -267,12 +267,14 @@
       }
     }
 
-    .history-btn {
+    .menu-container {
       position: fixed;
       top: 28px;
       right: 28px;
       z-index: 20;
-      margin-top: 46px;
+    }
+
+    .menu-btn {
       background: rgba(10, 12, 26, 0.5);
       backdrop-filter: blur(10px);
       padding: 8px 16px;
@@ -288,9 +290,62 @@
       transition: color 0.2s ease, background 0.2s ease;
     }
 
-    .history-btn:hover {
-      color: #ff8a8a;
-      background: rgba(255, 92, 92, 0.12);
+    .menu-btn:hover {
+      color: #6c5ce7;
+      background: rgba(108, 92, 231, 0.12);
+    }
+
+    .menu-btn.active {
+      color: #6c5ce7;
+      background: rgba(108, 92, 231, 0.15);
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 8px;
+      background: rgba(12, 15, 28, 0.8);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 140px;
+    }
+
+    .dropdown-menu.active {
+      display: flex;
+    }
+
+    .dropdown-menu button {
+      background: none;
+      border: none;
+      color: #a8b3d9;
+      padding: 12px 18px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .dropdown-menu button:hover {
+      background: rgba(108, 92, 231, 0.12);
+      color: #6c5ce7;
+    }
+
+    .dropdown-menu button:active {
+      background: rgba(108, 92, 231, 0.18);
+    }
+
+    .dropdown-menu button i {
+      font-size: 0.8rem;
     }
 
     .brand-badge {
@@ -427,12 +482,19 @@
         font-size: 1rem;
       }
 
-      .history-btn {
+      .menu-container {
         top: 16px;
         right: 16px;
-        margin-top: 38px;
-        padding: 4px 12px;
-        font-size: 0.6rem;
+      }
+
+      .menu-btn {
+        padding: 6px 12px;
+        font-size: 0.65rem;
+      }
+
+      .dropdown-menu button {
+        padding: 10px 14px;
+        font-size: 0.65rem;
       }
 
       .brand-badge {
@@ -493,13 +555,19 @@
     </div>
   </div>
 
-  <div class="api-status" id="apiStatus">
-    <i class="fas fa-key"></i> Groq Llama 3.3
+  <div class="menu-container">
+    <button class="menu-btn" id="menuBtn" title="Chat history menu">
+      <i class="fas fa-ellipsis-v"></i> Menu
+    </button>
+    <div class="dropdown-menu" id="dropdownMenu">
+      <button id="downloadHistoryBtn" title="Download chat history">
+        <i class="fas fa-download"></i> Download
+      </button>
+      <button id="clearHistoryBtn" title="Clear chat history">
+        <i class="fas fa-trash-can"></i> Clear
+      </button>
+    </div>
   </div>
-
-  <button class="history-btn" id="clearHistoryBtn" title="Clear chat history">
-    <i class="fas fa-trash-can"></i> Clear
-  </button>
 
   <div class="chat-panel" id="chatPanel">
     <div class="message ai">
@@ -723,7 +791,10 @@
     const input = document.getElementById('chatInput');
     const sendBtn = document.getElementById('sendBtn');
     const micBtn = document.getElementById('micBtn');
+    const menuBtn = document.getElementById('menuBtn');
+    const dropdownMenu = document.getElementById('dropdownMenu');
     const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+    const downloadHistoryBtn = document.getElementById('downloadHistoryBtn');
     const apiStatus = document.getElementById('apiStatus');
     const API_BASE_URL = window.location.protocol === 'file:' ? 'http://localhost:3000' : window.location.origin;
     const HISTORY_KEY = 'fahxd_chat_history';
@@ -909,10 +980,85 @@
       if (e.key === 'Enter') sendMessage();
     });
 
+    // Menu toggle functionality
+    menuBtn.addEventListener('click', () => {
+      dropdownMenu.classList.toggle('active');
+      menuBtn.classList.toggle('active');
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+      const menuContainer = document.querySelector('.menu-container');
+      if (!menuContainer.contains(e.target) && dropdownMenu.classList.contains('active')) {
+        dropdownMenu.classList.remove('active');
+        menuBtn.classList.remove('active');
+      }
+    });
+
     clearHistoryBtn.addEventListener('click', () => {
       if (confirm('Clear the entire chat history? This cannot be undone.')) {
         clearChatHistory();
+        dropdownMenu.classList.remove('active');
+        menuBtn.classList.remove('active');
       }
+    });
+
+    function downloadChatHistory(format = 'json') {
+      const history = loadHistory();
+      if (!history.length) {
+        alert('No chat history to download.');
+        return;
+      }
+
+      const timestamp = new Date().toLocaleString();
+      let content, filename, type;
+
+      if (format === 'json') {
+        const data = {
+          exported: timestamp,
+          messages: history
+        };
+        content = JSON.stringify(data, null, 2);
+        filename = `fahxd-chat-${Date.now()}.json`;
+        type = 'application/json';
+      } else if (format === 'txt') {
+        let text = `FAHXD_CORE CHAT HISTORY\nExported: ${timestamp}\n${'='.repeat(50)}\n\n`;
+        history.forEach((msg, idx) => {
+          const sender = msg.type === 'user' ? 'YOU' : 'FAHXD_CORE';
+          text += `[${idx + 1}] ${sender}:\n${msg.content}\n\n`;
+        });
+        content = text;
+        filename = `fahxd-chat-${Date.now()}.txt`;
+        type = 'text/plain';
+      } else if (format === 'csv') {
+        let csv = 'Type,Content,Timestamp\n';
+        history.forEach(msg => {
+          const escapedContent = `"${msg.content.replace(/"/g, '""')}"`;
+          csv += `${msg.type},${escapedContent},${new Date().toISOString()}\n`;
+        });
+        content = csv;
+        filename = `fahxd-chat-${Date.now()}.csv`;
+        type = 'text/csv';
+      }
+
+      // Create blob and download
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    downloadHistoryBtn.addEventListener('click', () => {
+      // Create a simple format selector
+      const format = confirm('Download as JSON? (Click Cancel for TXT)') ? 'json' : 'txt';
+      downloadChatHistory(format);
+      dropdownMenu.classList.remove('active');
+      menuBtn.classList.remove('active');
     });
 
     // --- VOICE INPUT (Web Speech API) ---
